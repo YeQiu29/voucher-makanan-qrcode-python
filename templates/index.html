@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voucher Scanner</title>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        #reader { width: 500px; }
+        #result { margin-top: 20px; padding: 10px; border: 1px solid #ccc; min-height: 50px; }
+        .success { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; }
+        .warning { background-color: #fff3cd; color: #856404; border-color: #ffeeba; }
+    </style>
+</head>
+<body>
+    <h1>Scanner Voucher Makan</h1>
+    <div id="reader"></div>
+    <div id="result">Hasil Scan:</div>
+
+    <script>
+        function onScanSuccess(decodedText, decodedResult) {
+            console.log(`Code matched = ${decodedText}`, decodedResult);
+            // Hentikan scanning setelah kode ditemukan
+            html5QrcodeScanner.clear();
+
+            // Kirim kode ke backend
+            fetch('/scan', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ code: decodedText })
+            })
+            .then(response => response.json())
+            .then(data => {
+                const resultDiv = document.getElementById('result');
+                resultDiv.textContent = `Hasil: ${data.message}`;
+                resultDiv.className = ''; // Reset classes
+
+                if (data.status === 'success') {
+                    resultDiv.classList.add('success');
+                } else if (data.status === 'expired' || data.status === 'used' || data.status === 'not_found') {
+                    resultDiv.classList.add('warning');
+                } else {
+                    resultDiv.classList.add('error');
+                }
+                
+                // Mulai scan lagi setelah beberapa detik atau setelah user klik tombol
+                setTimeout(() => {
+                    resultDiv.textContent = "Hasil Scan:";
+                    resultDiv.className = '';
+                    html5QrcodeScanner.render(onScanSuccess, onScanError);
+                }, 5000); // Scan ulang setelah 5 detik
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                const resultDiv = document.getElementById('result');
+                resultDiv.textContent = `Error komunikasi dengan server: ${error.message}`;
+                resultDiv.classList.add('error');
+                // Mulai scan lagi jika ada error komunikasi
+                setTimeout(() => {
+                    resultDiv.textContent = "Hasil Scan:";
+                    resultDiv.className = '';
+                    html5QrcodeScanner.render(onScanSuccess, onScanError);
+                }, 5000);
+            });
+        }
+
+        function onScanError(errorMessage) {
+            // handle scan error or no data found
+            // console.log(`No scan data: ${errorMessage}`);
+        }
+
+        var html5QrcodeScanner = new Html5QrcodeScanner(
+            "reader", { fps: 10, qrbox: { width: 250, height: 250 } }
+        );
+        html5QrcodeScanner.render(onScanSuccess, onScanError);
+    </script>
+</body>
+</html>
